@@ -102,7 +102,7 @@ function Write-Log {
     )
 
     if (-not $Message -or $Message.Count -eq 0) { return }
- 
+
     $IndentSize = 0
     if ($Timestamp -or $script:TimestampLoggingEnabled) {
         $CurrentTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -128,16 +128,19 @@ Writes an error message.
 
 .DESCRIPTION
 Writes one or more error log lines using the ERROR log level.
-Optionally exits the current PowerShell process.
+Optionally throws a terminating error or exits the current PowerShell process.
 
 .PARAMETER Message
 The message to write. Multiple strings are written on separate lines.
 
 .PARAMETER Exit
-Exits PowerShell with exit code 1 after writing the message.
+Exits the current PowerShell process with exit code 1 after writing the message.
+
+.PARAMETER Throw
+Throws a terminating exception after writing the message.
 
 .PARAMETER Timestamp
-Prefixes the message with the current timestamp.
+Prefixes each message with the current timestamp.
 
 .EXAMPLE
 Write-ErrorLog -Message "Operation failed."
@@ -149,19 +152,32 @@ Write-ErrorLog -Message @(
 )
 
 .EXAMPLE
+Write-ErrorLog -Message "Fatal error." -Throw
+
+.EXAMPLE
 Write-ErrorLog -Message "Fatal error." -Exit
 #>
 function Write-ErrorLog {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = "None")]
     param (
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
         [string[]]$Message,
+        [Parameter(ParameterSetName = "Exit")]
         [switch]$Exit,
+        [Parameter(ParameterSetName = "Throw")]
+        [switch]$Throw,
         [switch]$Timestamp
     )
     Write-Log -Level ([LogLevel]::ERROR) -Message $Message -Timestamp:$Timestamp
-    if ($Exit) { exit 1 }
+    switch ($PSCmdlet.ParameterSetName) {
+        "Throw" {
+            throw ($Message -join [Environment]::NewLine)
+        }
+        "Exit" {
+            exit 1
+        }
+    }
 }
 
 <#
